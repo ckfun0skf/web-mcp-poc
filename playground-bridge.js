@@ -1,12 +1,14 @@
+import { attachNativeWebMCP } from './playground-webmcp.js';
 const BASE = 'https://web-mcp-poc-relay.ckfun0skf.workers.dev';
 const hex = bytes => Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
 
 export function attachBridge(api) {
+  attachNativeWebMCP(api);
   const panel = document.createElement('section');
-  panel.innerHTML = '<h3>AI 連接</h3><p id="bridge-status" role="status">未連接。先勾選下方允許執行，再按連接。</p><button id="bridge-connect" type="button">連接／更新 token</button><button id="bridge-stop" type="button" disabled>停止 AI 操作</button><label>固定 MCP URL<input id="bridge-url" readonly></label><label>短期配對 token（只貼入 ChatGPT 配對卡片）<input id="bridge-token" type="password" readonly autocomplete="off"></label><button id="bridge-copy" type="button" disabled>複製 token</button><p>ChatGPT：新增固定 URL，無驗證。呼叫 show_pairing_card，模式揀 Tool Playground，貼入 token。之後用 list_browser_tools / call_browser_tool；唔用舊 MCP write_text。停止只能阻止新操作，不能中止已執行 JS。</p>';
+  panel.innerHTML = '<h3>WebSocket 測試／AI 遠端連接</h3><p id="bridge-status" role="status">未連接。原生 WebMCP 可獨立使用；需要遠端測試時才連接。</p><button id="bridge-connect" type="button">連接／更新 token</button><button id="bridge-stop" type="button" disabled>停止 WebSocket AI 操作</button><label>固定 MCP URL<input id="bridge-url" readonly></label><label>短期配對 token（只貼入 ChatGPT 配對卡片）<input id="bridge-token" type="password" readonly autocomplete="off"></label><button id="bridge-copy" type="button" disabled>複製 token</button><p>ChatGPT：新增固定 URL，無驗證。呼叫 show_pairing_card，模式揀 Tool Playground，貼入 token。之後用 list_browser_tools / call_browser_tool。此 WebSocket 路徑直接使用共用執行器，不經原生 WebMCP。停止只影響 WebSocket；取消下方執行允許會停用兩個入口。已開始 JS 不保證停止。</p>';
   document.querySelector('#workspace h2').after(panel);
   const warning = document.querySelector('.warning');
-  warning.textContent = warning.textContent.replace('此輪尚未連接 generic MCP。', '此頁已具 generic MCP 接線；必須主動允許及連接先接受 AI 指令。');
+  warning.textContent = warning.textContent.replace('此輪尚未連接 generic MCP。', '提供原生 WebMCP（需瀏覽器支援）及可選 WebSocket 遠端測試入口；兩者都需要主動允許執行。');
   const status = panel.querySelector('#bridge-status');
   const connect = panel.querySelector('#bridge-connect');
   const stopButton = panel.querySelector('#bridge-stop');
@@ -90,7 +92,7 @@ export function attachBridge(api) {
       ws.onclose = () => { if (active(ws, current)) halt('連線已斷開；重新連接及配對，固定 MCP URL 不變。'); };
     } catch { if (generation === current) halt('建立連線失敗。'); }
   });
-  stopButton.addEventListener('click', () => halt('已停止接受新 AI 指令；已開始 JS 不保證停止。'));
+  stopButton.addEventListener('click', () => halt('已停止接受新 WebSocket AI 指令；原生 WebMCP 保持原狀。已開始 JS 不保證停止。'));
   document.querySelector('#trust').addEventListener('change', () => { if (!api.allowed()) halt('已撤銷執行允許；已開始 JS 不保證停止。'); });
   copy.addEventListener('click', async () => {
     if (!tokenField.value) return;
