@@ -1,14 +1,16 @@
 {
   "name": "web-mcp-poc-relay",
-  "main": "src/worker.js",
+  "main": "src/mcp-worker.js",
   "compatibility_date": "2026-10-28",
   "workers_dev": true,
   "durable_objects": {
     "bindings": [
-      { "name": "BROWSER_SESSIONS", "class_name": "BrowserSession" }
+      { "name": "BROWSER_SESSIONS", "class_name": "BrowserSession" },
+      { "name": "AI_SESSIONS", "class_name": "AiBrowserSession" }
     ]
   },
   "migrations": [
-    { "tag": "v1", "new_sqlite_classes": ["BrowserSession"] }
+    { "tag": "v1", "new_sqlite_classes": ["BrowserSession"] },
+    { "tag": "v2", "new_sqlite_classes": ["AiBrowserSession"] }
   ]
 }
