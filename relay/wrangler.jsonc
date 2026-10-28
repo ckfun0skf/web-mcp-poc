@@ -1,6 +1,6 @@
 {
   "name": "web-mcp-poc-relay",
-  "main": "src/mcp-worker.js",
+  "main": "src/ui-worker.js",
   "compatibility_date": "2026-10-28",
   "workers_dev": true,
   "durable_objects": {
