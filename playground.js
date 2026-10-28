@@ -1,3 +1,4 @@
+import { attachBridge } from './playground-bridge.js';
 const $ = id => document.getElementById(id);
 const KEY = 'web-mcp-poc.tool-playground.v1';
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
@@ -70,7 +71,7 @@ function commit(next) {
   localStorage.setItem(KEY, data);
   tools = normalized; version++; renderList();
   window.dispatchEvent(new CustomEvent('tool-registry-changed', { detail: { version, tools: snapshot() } }));
-  report('已保存。Registry v' + version + '；此輪只供本地測試，未接 generic MCP。');
+  report('已保存。Registry v' + version + '；AI 下次查詢會取得目前啟用工具，舊版本呼叫會被拒絕。');
 }
 function markDirty() { dirty = true; $('draft-status').textContent = '有未儲存修改；測試只會執行已儲存版本'; }
 function canLeave() { return !dirty || confirm('放棄目前未儲存嘅修改？'); }
@@ -192,5 +193,17 @@ try {
   if (saved) { const data = JSON.parse(saved); if (data.format !== 1 || !Array.isArray(data.tools)) throw new Error('已儲存資料格式錯誤'); tools = Validator ? data.tools.map(normalize) : data.tools; }
   else { tools = defaults(); if (Validator) commit(tools); }
   load(tools[0]?.id ?? null);
-  if (Validator) report('本地 Tool Playground 已就緒；此輪未接 generic MCP。');
+  if (Validator) report('Tool Playground 已就緒；勾選允許後，可連接 MCP relay。');
 } catch (error) { tools = []; load(null); report('載入失敗，原有本地資料未刪除：' + error.message + '。可匯入備份或手動還原預設。', true); }
+attachBridge({
+  ready: () => Boolean(Validator),
+  allowed: () => $('trust').checked,
+  list: () => { requireValidator(); return { version, tools: snapshot() }; },
+  run: (name, args, expectedVersion) => {
+    requireValidator();
+    if (expectedVersion !== version) throw new Error('REGISTRY_CHANGED: call list_browser_tools again before executing.');
+    return execute(name, args);
+  },
+  getVersion: () => version,
+  log
+});
