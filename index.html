@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Textarea PoC</title>
+  <style>
+    body { max-width: 760px; margin: 40px auto; padding: 0 20px; font-family: system-ui, sans-serif; line-height: 1.6; }
+    textarea { box-sizing: border-box; width: 100%; min-height: 220px; padding: 12px; font: inherit; }
+    button { margin: 12px 8px 0 0; padding: 8px 16px; cursor: pointer; }
+    #status { color: #555; }
+    #log { min-height: 100px; padding: 12px; background: #f3f3f3; white-space: pre-wrap; overflow-wrap: anywhere; }
+  </style>
+</head>
+<body>
+  <h1>AI Textarea PoC</h1>
+  <p id="status">階段 1：頁面寫入測試，尚未連接 AI 或 relay。</p>
+  <label for="editor">文字內容</label>
+  <textarea id="editor" placeholder="之後 AI 寫入嘅文字會喺呢度出現"></textarea>
+  <div>
+    <button id="test-replace" type="button">測試覆寫</button>
+    <button id="test-append" type="button">測試追加</button>
+    <button id="clear" type="button">清空</button>
+  </div>
+  <h2>執行紀錄</h2>
+  <pre id="log" aria-live="polite"></pre>
+  <script>
+    'use strict';
+    const editor = document.querySelector('#editor');
+    const logElement = document.querySelector('#log');
+
+    function log(message) {
+      const entry = `[${new Date().toLocaleTimeString()}] ${message}`;
+      const lines = [entry, ...logElement.textContent.split('\n')];
+      logElement.textContent = lines.slice(0, 100).join('\n');
+    }
+
+    // Future relay commands will call this same function.
+    function writeText({ text, mode = 'replace' }) {
+      if (typeof text !== 'string') throw new Error('text 必須係字串');
+      if (text.length > 20000) throw new Error('每次最多寫入 20,000 個 UTF-16 code units');
+      if (!['replace', 'append'].includes(mode)) {
+        throw new Error('mode 只可以係 replace 或 append');
+      }
+      const nextValue = mode === 'append' ? editor.value + text : text;
+      if (nextValue.length > 100000) throw new Error('內容總長度超過 PoC 限制');
+      editor.value = nextValue;
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
+      log(`write_text 完成：${mode}，寫入長度 ${text.length}`);
+      return { success: true, mode, writtenLength: text.length, totalLength: editor.value.length };
+    }
+
+    function runWrite(args) {
+      try {
+        writeText(args);
+      } catch (error) {
+        log(`錯誤：${error.message}`);
+      }
+    }
+
+    document.querySelector('#test-replace').addEventListener('click', () => {
+      runWrite({ text: '你好！呢段文字由頁面函數寫入。', mode: 'replace' });
+    });
+    document.querySelector('#test-append').addEventListener('click', () => {
+      runWrite({ text: '\n呢一行係追加嘅文字。', mode: 'append' });
+    });
+    document.querySelector('#clear').addEventListener('click', () => {
+      runWrite({ text: '', mode: 'replace' });
+    });
+    log('頁面已準備好；尚未建立 relay 或 MCP 連線');
+  </script>
+</body>
+</html>
