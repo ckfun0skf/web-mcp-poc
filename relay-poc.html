@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WebSocket Relay PoC</title>
+  <style>
+    body { max-width: 760px; margin: 40px auto; padding: 0 20px; font-family: system-ui, sans-serif; line-height: 1.6; }
+    textarea { box-sizing: border-box; width: 100%; min-height: 220px; padding: 12px; font: inherit; }
+    button { margin: 8px 8px 8px 0; padding: 8px 16px; }
+    pre { padding: 12px; background: #f3f3f3; white-space: pre-wrap; overflow-wrap: anywhere; }
+  </style>
+</head>
+<body>
+  <h1>WebSocket Relay PoC</h1>
+  <p>階段 2：Cloudflare 往返測試，尚未連接 AI。</p>
+  <p>按下連接即允許測試 relay 覆寫以下 textarea。只用假資料。</p>
+  <p id="status" role="status">未連接</p>
+  <button id="connect" type="button">連接 relay</button>
+  <button id="test" type="button" disabled>經 relay 測試寫入</button>
+  <button id="disconnect" type="button" disabled>斷開</button>
+  <p><label for="editor">測試內容（測試會覆寫）</label></p>
+  <textarea id="editor" placeholder="等待 relay 傳回寫入指令"></textarea>
+  <h2>執行紀錄</h2>
+  <pre id="log" aria-live="polite"></pre>
+  <script src="./relay-poc.js" defer></script>
+</body>
+</html>
