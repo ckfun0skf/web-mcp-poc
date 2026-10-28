@@ -1,0 +1,3 @@
+Deployment trigger: 2026-10-28
+Purpose: test Cloudflare Workers Builds after setting the root directory to relay.
+This file is not imported by the Worker and does not change application behavior.
