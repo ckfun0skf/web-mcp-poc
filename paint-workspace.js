@@ -1,29 +1,15 @@
-// One JS Paint iframe per workspace. The vendor's own origin storage is namespace-scoped
-// within its iframe before vendor scripts run. This is a preview, not durable document export.
-const VENDOR='./vendor/jspaint/index.html';
-const prefix=id=>'web-mcp-poc.paint.'+id+'.';
-const injected=String.raw`<script>(function(){
-const params=new URLSearchParams(location.search),id=params.get('workspace');
-if(!/^[0-9a-f-]{36}$/i.test(id||''))throw new Error('INVALID_WORKSPACE_ID');
-const p='web-mcp-poc.paint.'+id+'.';
-for(const kind of ['localStorage','sessionStorage']){
-  const original=window[kind];
-  const proxy={getItem:key=>original.getItem(p+String(key)),setItem:(key,value)=>original.setItem(p+String(key),String(value)),removeItem:key=>original.removeItem(p+String(key)),clear:()=>{for(let i=original.length-1;i>=0;i--){const key=original.key(i);if(key&&key.startsWith(p))original.removeItem(key)}},key:index=>{let n=0;for(let i=0;i<original.length;i++){const key=original.key(i);if(key&&key.startsWith(p)){if(n++===index)return key.slice(p.length)}}return null},get length(){let n=0;for(let i=0;i<original.length;i++)if(original.key(i)?.startsWith(p))n++;return n}};
-  Object.defineProperty(window,kind,{configurable:true,value:proxy});
-}
-window.addEventListener('message',event=>{if(event.source!==parent||event.origin!==location.origin||event.data?.type!=='WORKSPACE_PAINT_DISPOSE')return;for(const kind of ['localStorage','sessionStorage'])window[kind].clear();parent.postMessage({type:'WORKSPACE_PAINT_DISPOSED',workspace:id},location.origin)});
-})();</script>`;
+const sessionFor=id=>{if(!/^[0-9a-f-]{36}$/i.test(id))throw new Error('INVALID_WORKSPACE_ID');return 'web-mcp-workspace-'+id;};
+export function removePaintBackup(id){localStorage.removeItem('image#'+sessionFor(id));}
 export function createPaintFrame(host,id,{onStatus=()=>{}}={}){
-  if(!host||!host.ownerDocument||!/^[0-9a-f-]{36}$/i.test(id))throw new Error('INVALID_PAINT_HOST');
-  const frame=host.ownerDocument.createElement('iframe');frame.title='JS Paint workspace';frame.style.cssText='display:block;width:100%;height:70vh;border:1px solid #3c4964;background:#fff';
-  // srcdoc needs a stable base for relative assets, and the injected namespace script precedes vendor scripts.
-  let disposed=false;const controller=new AbortController();
-  async function start(){try{const response=await fetch(VENDOR,{signal:controller.signal});if(!response.ok)throw new Error('JS Paint engine unavailable: '+response.status);const html=await response.text();if(disposed)return;const base=new URL('./vendor/jspaint/',location.href).href;const patch='<base href="'+base+'">'+injected.replace('location.search','new URL(document.referrer).search');
-    // srcdoc cannot receive a unique query string; pass workspace ID using an isolated blob URL instead.
-    // Refuse to run an unverified injection rather than presenting a shared-state engine.
-    throw new Error('PAINT_FRAME_BOOTSTRAP_NOT_READY: workspace-specific preload injection requires a verified entry point.');
-  }catch(e){if(!disposed)onStatus(e.message)}}
-  // Disabled until upstream persistence/session hooks are wired; never silently share JS Paint state.
-  start();host.replaceChildren(frame);
-  return Object.freeze({dispose(){disposed=true;controller.abort();frame.remove()}});
+  const session=sessionFor(id),frame=document.createElement('iframe');
+  frame.title='JS Paint workspace';frame.style.cssText='display:block;width:100%;height:72vh;border:0;background:white';
+  let disposed=false,timer,deadline;const controller=new AbortController();
+  function status(message){if(!disposed)onStatus(message);}
+  function check(){if(disposed)return;try{const doc=frame.contentDocument,canvas=doc?.querySelector('canvas.main-canvas');const key='image#'+session;
+    if(canvas?.width>0&&canvas?.height>0&&frame.contentWindow.location.hash==='#local:'+session&&localStorage.getItem(key)!==null){clearInterval(timer);status('Paint editor loaded with workspace-specific local backup. Use File > Save for an external copy.');return;}
+    if(Date.now()>deadline){clearInterval(timer);status('Editor loaded, but workspace backup readiness could not be confirmed. Save an external copy before leaving. Check Console for errors.');}
+  }catch(e){clearInterval(timer);status('Paint readiness check failed: '+e.message);}}
+  async function start(){try{const response=await fetch('./vendor/jspaint/UPSTREAM.txt',{signal:controller.signal});if(!response.ok)throw new Error('Vendored JS Paint engine unavailable');const info=await response.text();if(!info.includes('53be67ab8c47cc0d2168899e7481bc04839c4c81'))throw new Error('Unexpected JS Paint revision');if(disposed)return;frame.src='./vendor/jspaint/index.html#local:'+session;deadline=Date.now()+30000;timer=setInterval(check,300);status('Loading Paint workspace…');}catch(e){status(e.message);}}
+  host.append(frame);start();
+  return Object.freeze({show(visible){frame.hidden=!visible;},dispose(){disposed=true;controller.abort();clearInterval(timer);frame.remove();}});
 }
