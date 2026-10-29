@@ -1,0 +1,15 @@
+# Custom tools in the multi-workspace preview
+
+Open Custom Tools from the sidebar. Define a name, description, inputSchema JSON, JavaScript function body, optional output schema and annotations. Save explicitly; only saved enabled tools appear in native WebMCP. Built-in names are reserved and cannot be replaced, edited or deleted. Built-in toggles remain in WebMCP Tool Settings; custom toggles are managed in Custom Tools.
+
+Parameters currently use a full JSON Schema editor, not the legacy visual parameter rows. The schema supports nested properties, arrays and combinations through raw JSON. Validation uses @cfworker/json-schema 4.1.1, loaded from esm.sh on demand. Input schema must have type object; external references are rejected. No automatic type coercion or default insertion is performed. Syntax/schema initialization checks are not a guarantee of correct tool behavior.
+
+Function body receives args and app. It can await and return JSON-compatible data. app.listWorkspaces(), app.getWorkspace(id), app.getText(id), app.setText(id,text), app.appendText(id,text) and app.log(value) are available. Text APIs require explicit workspace IDs. app.registerTool(definition), app.removeTool(name), app.setToolEnabled(name,boolean) and app.getTools() manage custom tools only; built-in names are protected. registerTool is async and must be awaited. No agent tool for creating tools is provided by default.
+
+Tool definitions and code are saved under a separate localStorage key; export includes custom definitions/code only, not workspace content, pairing data or secrets. Import merges with existing custom tools, rejects name conflicts and starts all imported tools disabled. Import legacy tools reads the old v1 storage only after an explicit user action; legacy data is not deleted. Legacy definitions using built-in names are rejected rather than overriding the built-ins. Rename those definitions in an exported JSON file before importing. Legacy text code must be changed from implicit getText()/setText(text) to ID-based APIs.
+
+Manual tests execute saved enabled tools through the custom registry; unsaved drafts cannot run. No automatic workflow tests are added. Custom tools loaded from storage are revalidated before execution. Calls may fail due to CDN/network or storage quota. Invalid existing stored data is not overwritten by save/import; recover/export that raw data before replacing it.
+
+Developer mode only: custom JavaScript runs in the page realm with DOM, origin storage and network permissions. It is not a security sandbox. Arbitrary code can freeze the page or bypass application-level protections; built-in immutability is not a boundary against hostile same-page code. A started function cannot be forcibly terminated by a Promise timeout. Cancellation is checked before execution but cannot undo side effects or reliably stop started custom code. Return/output validation can fail after side effects. Never automatically retry unknown failures or import untrusted code.
+
+Homepage cutover, old-file cleanup, new WebSocket integration and visual parameter rows remain pending. Existing manual-only Paint workflow stays unchanged.
