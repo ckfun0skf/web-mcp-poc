@@ -1,0 +1,62 @@
+name: One-time legacy PoC cleanup
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cleanup-legacy.yml'
+permissions:
+  contents: write
+concurrency:
+  group: one-time-legacy-cleanup
+  cancel-in-progress: false
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Remove only the approved legacy paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm --ignore-unmatch -- \
+            mcp-poc.html relay-poc.html relay-poc.js \
+            playground.js playground-bridge.js playground-webmcp.js \
+            PLAYGROUND.md PLAYGROUND-CONNECTION.md WORKSPACE-REFACTOR.md \
+            PAINT-INTEGRATION.md PAINT-WORKSPACE.md \
+            relay/.gitignore relay/MCP-TEST.md relay/PAIRING-CARD.md \
+            relay/README.md relay/REGISTRY-BRIDGE.md relay/WEBSOCKET-TEST.md \
+            relay/deploy-trigger.txt relay/package.json relay/wrangler.jsonc \
+            relay/src/mcp-worker.js relay/src/pairing-card.js \
+            relay/src/registry-worker.js relay/src/ui-worker.js relay/src/worker.js \
+            .github/workflows/cleanup-legacy.yml
+          test -s playground.html
+          test -s workspace-preview-app.js
+          test -s workspace-core.js
+          test -s custom-tools.js
+          test -s canvas-workspace.js
+          test -s vendor/jspaint/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          retired = re.compile(r'''(?:["'])(?:\./)?(?:playground(?:-bridge|-webmcp)?\.js|relay-poc(?:\.html|\.js)|mcp-poc\.html)(?:["'])''')
+          failures = []
+          for path in [*Path('.').glob('*.js'), *Path('.').glob('*.html')]:
+              if retired.search(path.read_text(encoding='utf-8')):
+                  failures.append(str(path))
+          if failures:
+              raise SystemExit('Remaining active references to retired paths: ' + ', '.join(failures))
+          if list(Path('relay').rglob('*')) if Path('relay').exists() else False:
+              raise SystemExit('Unexpected relay files remain; refusing partial cleanup.')
+          PY
+      - name: Commit deletion without force-pushing
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'chore: remove legacy PoC pages, old adapters, embedded relay and obsolete milestone docs'
+          git push origin HEAD:main
