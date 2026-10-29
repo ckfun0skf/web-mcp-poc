@@ -1,21 +1,8 @@
-name: Paint browser regression
+name: Paint browser regression (manual only)
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - '*paint*.js'
-      - 'workspace-core.js'
-      - 'workspace-preview*'
-      - 'paint-regression.html'
-      - 'scripts/run-paint-regression.cjs'
-      - '.github/workflows/paint-regression.yml'
-      - 'vendor/jspaint/**'
 permissions:
   contents: read
-concurrency:
-  group: paint-regression
-  cancel-in-progress: true
 jobs:
   chromium:
     runs-on: ubuntu-latest
@@ -25,11 +12,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install isolated browser test dependency
+      - name: Install browser test dependency
         run: |
           npm install --prefix "$RUNNER_TEMP/paint-test" --ignore-scripts --no-audit --no-fund playwright@1.56.0
           node "$RUNNER_TEMP/paint-test/node_modules/playwright/cli.js" install --with-deps chromium
-      - name: Start static server and run real engine tests
+      - name: Run manual browser regression
         env:
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/paint-test/node_modules/playwright
         run: |
@@ -43,9 +30,8 @@ jobs:
             sleep 1
           done
           node scripts/run-paint-regression.cjs
-      - name: Upload browser results
+      - uses: actions/upload-artifact@v4
         if: always()
-        uses: actions/upload-artifact@v4
         with:
           name: paint-browser-regression
           path: test-results/
