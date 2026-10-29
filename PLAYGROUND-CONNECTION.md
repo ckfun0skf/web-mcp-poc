@@ -1,24 +1,9 @@
-# Playground generic MCP connection
+# Playground connection
 
-This commit completes the browser-side wiring to the registry relay introduced in 0f8862f. The relay must already be deployed. It also updates the pairing card text/mode, so wait for both Pages and Worker builds. No browser or cloud execution test has been performed by the authoring tool.
+The current Playground uses native WebMCP only. Open playground.html in a compatible browser and connect using a WebMCP-capable inspector or agent integration.
 
-## Test
+Enabled tools are published automatically. Built-in tool toggles are under WebMCP Tool Settings; custom definitions and toggles are under Custom Tools. No page-level execution opt-in, WebSocket URL, pairing token, browser handle or Cloudflare deployment is required by the active application.
 
-1. Open playground.html from GitHub Pages, hard-refresh if cached. Verify local tools still work.
-2. In Workspace enable trusted JS execution, then click 連接／更新 token. Wait for generic relay ready. The token is not persistent.
-3. ChatGPT uses the existing fixed /mcp URL with authentication None. Refresh its tool definitions if list_browser_tools/call_browser_tool are missing.
-4. Ask for show_pairing_card. Select Tool Playground, paste the new token, pair, then click Notify AI. Do not share tokens or handles in screenshots.
-5. Ask the model to list_browser_tools, then call_browser_tool for write_text with arguments {"text":"Hello generic tools"} and the returned registry_version. Do not call the legacy MCP write_text tool.
-6. Edit saved JS or add a custom tool; ask the model to list again and run it. Registry edits do not require reconnecting.
-7. Disable/delete a tool and verify stale calls fail; re-list should omit disabled tools. Invalid arguments must fail before JS execution.
-8. Stop or uncheck execution consent, then verify new remote calls cannot execute. Test another browser tab with its own token to confirm isolation.
+Previous WebSocket pairing instructions are obsolete. Old relay code remains in the repository pending physical cleanup and is not loaded by playground.html. This does not remove or change any separately deployed Worker or the independent web-mcp-relay repository.
 
-The registry is pulled live from the page, not pushed to a global tools list. JS source stays in the browser registry; only descriptors and operation results are deliberately forwarded. A user-written tool can of course explicitly return or send any accessible data.
-
-Both manual and remote calls use the same execute() function and its running flag, enabled check, input/output validators and logs. Exact registry version is checked immediately before calling it. Tools edited during an in-flight call affect future calls, not the code snapshot already running.
-
-The browser rejects legacy write_text messages so disabling/editing the default write_text cannot be bypassed through the old tool. Every new connection gets a new token; the fixed MCP URL never changes. The server still uses its existing one-hour browser authorization and up-to-30-minute handles.
-
-Stop/disconnect prevents new dispatch and discards late replies. It cannot kill already-started same-page JS or undo effects. Soft timeouts do not terminate code; an async tool can still run after timeout, and an infinite loop may freeze the page. Request-id replay caching is per connection (last 32 replies), not durable exactly-once delivery. Do not auto-retry writes.
-
-The HTML warning is updated by the bridge module at runtime; if it still says this phase is local-only and AI controls are absent, the updated JS did not load. Existing local storage and old PoC pages remain intact. No OAuth is added.
+If native support is unavailable, local workspace editing remains possible but agent tool publication is unavailable. Check the status message rather than assuming a generic AI chat client can directly call page tools.
