@@ -1,0 +1,53 @@
+name: Paint browser regression
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '*paint*.js'
+      - 'workspace-core.js'
+      - 'workspace-preview*'
+      - 'paint-regression.html'
+      - 'scripts/run-paint-regression.cjs'
+      - '.github/workflows/paint-regression.yml'
+      - 'vendor/jspaint/**'
+permissions:
+  contents: read
+concurrency:
+  group: paint-regression
+  cancel-in-progress: true
+jobs:
+  chromium:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated browser test dependency
+        run: |
+          npm install --prefix "$RUNNER_TEMP/paint-test" --ignore-scripts --no-audit --no-fund playwright@1.56.0
+          node "$RUNNER_TEMP/paint-test/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Start static server and run real engine tests
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/paint-test/node_modules/playwright
+        run: |
+          set -euo pipefail
+          test -s vendor/jspaint/index.html
+          python3 -m http.server 8765 --bind 127.0.0.1 > "$RUNNER_TEMP/paint-server.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8765/paint-regression.html > /dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/run-paint-regression.cjs
+      - name: Upload browser results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paint-browser-regression
+          path: test-results/
+          if-no-files-found: warn
+          retention-days: 7
