@@ -1,15 +1,23 @@
-# Custom tools in the multi-workspace preview
+# Custom Tools
 
-Open Custom Tools from the sidebar. Define a name, description, inputSchema JSON, JavaScript function body, optional output schema and annotations. Save explicitly; only saved enabled tools appear in native WebMCP. Built-in names are reserved and cannot be replaced, edited or deleted. Built-in toggles remain in WebMCP Tool Settings; custom toggles are managed in Custom Tools.
+Open Custom Tools in the sidebar. The two-column editor separates saved tools from definition, parameters, JavaScript, advanced metadata and manual tests. Save explicitly; only saved enabled tools are published to native WebMCP. Built-in definitions remain immutable and non-deletable, with enable/disable in WebMCP Tool Settings. Custom tools cannot use reserved built-in names.
 
-Parameters currently use a full JSON Schema editor, not the legacy visual parameter rows. The schema supports nested properties, arrays and combinations through raw JSON. Validation uses @cfworker/json-schema 4.1.1, loaded from esm.sh on demand. Input schema must have type object; external references are rejected. No automatic type coercion or default insertion is performed. Syntax/schema initialization checks are not a guarantee of correct tool behavior.
+## Parameters
 
-Function body receives args and app. It can await and return JSON-compatible data. app.listWorkspaces(), app.getWorkspace(id), app.getText(id), app.setText(id,text), app.appendText(id,text) and app.log(value) are available. Text APIs require explicit workspace IDs. app.registerTool(definition), app.removeTool(name), app.setToolEnabled(name,boolean) and app.getTools() manage custom tools only; built-in names are protected. registerTool is async and must be awaited. No agent tool for creating tools is provided by default.
+The visual builder manages top-level parameter name, type, required status and description. Each parameter has an advanced object/boolean JSON Schema editor. Full inputSchema JSON remains the source of truth and supports nested object/array structures, defaults, enums, unions and constraints. The visual builder preserves unrelated schema fields and pauses when full JSON is invalid. Renaming updates properties and required only; it does not rewrite dependentRequired, dependentSchemas, conditions or $ref paths. Review those manually. Type changes preserve advanced fields rather than silently deleting constraints.
 
-Tool definitions and code are saved under a separate localStorage key; export includes custom definitions/code only, not workspace content, pairing data or secrets. Import merges with existing custom tools, rejects name conflicts and starts all imported tools disabled. Import legacy tools reads the old v1 storage only after an explicit user action; legacy data is not deleted. Legacy definitions using built-in names are rejected rather than overriding the built-ins. Rename those definitions in an exported JSON file before importing. Legacy text code must be changed from implicit getText()/setText(text) to ID-based APIs.
+Validate checks syntax and schema initialization without executing or saving code. JSON Schema validation uses @cfworker/json-schema 4.1.1 on demand from esm.sh. External schema references are rejected; no coercion or default insertion. Tests use the saved enabled tool, not the draft. Dirty drafts prompt before switching tools or closing and warn on page unload. Test arguments are not part of the saved tool definition.
 
-Manual tests execute saved enabled tools through the custom registry; unsaved drafts cannot run. No automatic workflow tests are added. Custom tools loaded from storage are revalidated before execution. Calls may fail due to CDN/network or storage quota. Invalid existing stored data is not overwritten by save/import; recover/export that raw data before replacing it.
+## Runtime API
 
-Developer mode only: custom JavaScript runs in the page realm with DOM, origin storage and network permissions. It is not a security sandbox. Arbitrary code can freeze the page or bypass application-level protections; built-in immutability is not a boundary against hostile same-page code. A started function cannot be forcibly terminated by a Promise timeout. Cancellation is checked before execution but cannot undo side effects or reliably stop started custom code. Return/output validation can fail after side effects. Never automatically retry unknown failures or import untrusted code.
+Function body receives args and app. Available: app.listWorkspaces(), app.getWorkspace(id), app.getText(id), app.setText(id,text), app.appendText(id,text), app.log(value), app.getTools(), app.registerTool(definition), app.removeTool(name) and app.setToolEnabled(name,boolean). Text APIs require workspace IDs. registerTool is async and must be awaited; tool-management methods cannot alter built-in definitions. No default agent tool for creating new tools is exposed.
 
-Homepage cutover, old-file cleanup, new WebSocket integration and visual parameter rows remain pending. Existing manual-only Paint workflow stays unchanged.
+## Storage and import
+
+Existing v2 storage and export format are retained. Export contains custom definitions and JS only, not workspace content or pairing credentials. Import merges tools, rejects duplicate/reserved names and disables imports. Legacy import is explicit, does not delete old data, and requires ID-based text API migration. Invalid stored data is not silently overwritten. Use exported JSON to rename conflicting legacy tool names before importing.
+
+## Limits
+
+Trusted developer code only: JS has page/origin permissions, not a sandbox. It may freeze the page or bypass application-level protections. Started code cannot be forcibly stopped or rolled back. Output validation or storage can fail after side effects; never automatically retry unknown failures. Changing/removing a tool cannot terminate already-running JS. The registry rechecks saved definitions immediately before execution after asynchronous validation.
+
+No new automatic tests or WebSocket integration are added. WebSocket support is removed from the planned scope; old code cleanup and homepage cutover remain separate pending work. Browser verification is manual; no test pass is claimed for this change.
