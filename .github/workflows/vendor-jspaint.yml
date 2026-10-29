@@ -1,0 +1,61 @@
+name: Vendor pinned JS Paint
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/vendor-jspaint.yml'
+permissions:
+  contents: write
+concurrency:
+  group: vendor-jspaint
+  cancel-in-progress: false
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out application
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Fetch and verify pinned engine
+        shell: bash
+        env:
+          UPSTREAM_REV: 53be67ab8c47cc0d2168899e7481bc04839c4c81
+        run: |
+          set -euo pipefail
+          source_dir="$RUNNER_TEMP/jspaint-source"
+          export_dir="$RUNNER_TEMP/jspaint-export"
+          mkdir -p "$source_dir" "$export_dir"
+          git -C "$source_dir" init
+          git -C "$source_dir" remote add origin https://github.com/1j01/jspaint.git
+          git -C "$source_dir" fetch --depth=1 origin "$UPSTREAM_REV"
+          test "$(git -C "$source_dir" rev-parse FETCH_HEAD)" = "$UPSTREAM_REV"
+          git -C "$source_dir" archive FETCH_HEAD | tar -x -C "$export_dir"
+          test -s "$export_dir/LICENSE.txt"
+          test -s "$export_dir/index.html"
+          test -s "$export_dir/src/app.js"
+          test -s "$export_dir/lib/os-gui/build/layout.css"
+          if grep -RIl '^version https://git-lfs.github.com/spec/v1' "$export_dir"; then
+            echo 'Unresolved LFS assets found; refusing incomplete vendor import.' >&2
+            exit 1
+          fi
+          mkdir -p vendor/jspaint
+          rsync -a --delete --exclude='.github/' --exclude='.vscode/' --exclude='CNAME' "$export_dir/" vendor/jspaint/
+          printf 'Upstream: https://github.com/1j01/jspaint\nCommit: %s\nRoot license: LICENSE.txt\nBundled dependency notices remain with their respective files.\n' "$UPSTREAM_REV" > vendor/jspaint/UPSTREAM.txt
+          touch .nojekyll
+      - name: Commit vendored engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add vendor/jspaint .nojekyll
+          if git diff --cached --quiet; then
+            echo 'Pinned engine already present.'
+            exit 0
+          fi
+          git commit -m 'build: import JS Paint 53be67a with upstream assets and notices'
+          git push origin HEAD:main
