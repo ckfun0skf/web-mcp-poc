@@ -1,31 +1,15 @@
-# Agent Paint tools: first connected implementation
+# Paint background execution and snapshots
 
-The preview registry now includes paint_get_state, paint_set_style, paint_gesture, paint_undo and paint_redo. All are built-in, read-only definitions with per-tool enable/disable preferences. There is no global execution checkbox.
+All Paint workspaces are initialized when created or restored, even when not selected. A per-workspace iframe remains in one body-level portal; it is positioned over the workspace placeholder when selected and parked offscreen with a normal layout viewport otherwise. It is not moved between parents or display:none while loading or drawing. Background work does not select the workspace.
 
-## Integration
+Startup checks the pinned vendor revision, native local session, initial canvas and prior saved image pixels, then loads the tool bridge in that iframe. Existing images are compared to their saved image before readiness; new sessions wait for native local backup creation. The startup deadline is 30 seconds. Failure is shown as error rather than ready. Old images above 16777216 pixels are rejected by the readiness check. A native document/session change is rejected by getBridge rather than silently targeting another document.
 
-A same-origin module is loaded inside the visible JS Paint iframe on first tool use. It imports the pinned engine functions for tool selection and history and supplies those to jspaint-adapter.js. It accesses the engine's existing global lexical state inside that frame rather than constructing a second renderer.
+add_workspace(type paint) includes Paint loading state and next_tool paint_wait_ready. paint_wait_ready waits up to 12 seconds and returns {state,stage,ready,error,workspace_id}; if still loading, call it again instead of recreating the workspace. Initialization errors throw. Paint operations also await initialization and do not draw if their wait expires. Deleting a workspace aborts startup and removes its iframe. This is tool-response notification, not autonomous agent wake-up.
 
-Only the currently visible Paint workspace can be targeted. Unknown IDs, text targets and background Paint workspaces are rejected. The editor must have loaded before a bridge can be created. Initial image restoration may be asynchronous; confirm the displayed document before agent drawing. Drawing tools are a preview and have not been browser-tested by the authoring tool.
+paint_get_snapshot returns {content:[{type:image,mimeType:image/png,data:<base64>}],metadata,workspace_id}. Metadata includes original image dimensions, source region, actual returned dimensions, scale ratios, snapshot ID and time. x/y/width/height specify an integer image-pixel crop; max_dimension defaults to 640, allowed 64-1024. PNG is downsampled until its base64 is at most 48000 characters, to fit the existing extension's 64000-character JSON result limit with envelope overhead. Complex images may be downsampled below requested dimensions. Use a smaller crop to inspect detail. Drawing always uses original pixels, not thumbnail coordinates.
 
-## Supported gestures
+The identity/audit envelope nests this result under result. An external relay must promote the image block into actual MCP image content; returning JSON/base64 text alone does not provide visual input to the model. The independent relay image-forwarding change is a separate repository update and is not included in this commit. Host/model image support is still required.
 
-- pencil, brush, eraser: array of image-pixel coordinates
-- line, rectangle, ellipse: exactly two points
-- fill: exactly one point
-- optional button 0 or 2 and shiftKey
-- colors: foreground/background CSS color strings; size 1-64 sets pencil, brush, eraser and shape stroke width together
+Activity summaries omit image blocks and PNG data rather than saving their base64. Existing identity token verification, Discussion, Activity and tool toggles are retained. The new tools are built-in, immutable and individually disableable.
 
-Example paint_gesture arguments:
-
-```json
-{"workspace_id":"<paint workspace ID>","tool":"line","points":[[0,0],[100,100]]}
-```
-
-## Limits and tests still required
-
-Curves, polygons, text, selections, style modes, exports and full JS Paint parity are not implemented in this agent adapter. Users can still use the engine UI normally. Tool selection and styles may change the user's currently selected settings.
-
-The bridge rejects an existing pointer operation, selection, textbox, menu/dialog or multi-stage tool. It blocks trusted input inside the iframe during its own operation, but parent-page workspace switching is not locked. Switching or deleting a workspace during execution is not yet guaranteed safe; avoid it during this preview. Calls can leave partial changes if cancelled; no automatic retries or rollback. Undo grouping and UI events must be verified in a real browser. Revision numbers currently track text writes, not Paint edits.
-
-Manually test state, line and pencil paths, colors/size, undo/redo, zoom/scroll coordinate mapping, concurrent calls, disabled-tool rejection, cancellation and two-workspace isolation before treating this as validated. No automated or browser execution tests have been run in this change.
+Supported agent gestures remain pencil, brush, eraser, line, rectangle, ellipse and fill. Colors/size and native undo/redo are supported. Curves, polygons, text, selection operations and full parity remain pending. Snapshot requires a completed canvas state; finish selection/text/dialog operations first. Background layout, restore, coordinate mapping, snapshots and image delivery need manual browser verification. No automatic test workflow or end-to-end pass is claimed here.
