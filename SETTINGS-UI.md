@@ -1,0 +1,13 @@
+# Unified Settings UI
+
+Default main view is Workspaces. Settings has Agents Settings, Tools Settings and System Activity. Settings views share paginated table patterns (10/25/50 rows) and preserve their in-memory filters/page sizes while switching tabs. Main view changes do not recreate workspace engines. Paint stays background-capable; Canvas rendering pauses when not shown.
+
+Agents Settings columns: Name, ID, Registered at, Last Activity, Action. ID has a separate copy-ID icon. Actions are Key (copy token), Eye (token dialog) and Activity (navigate to System Activity with that exact identity filter, first page). Names show credential state. The token dialog retains reveal/copy, revoke and rotate/reissue with explicit user confirmation; it masks after 20 seconds and on window blur, document hiding or close. Credentials are never part of the table or activity data.
+
+Tools Settings combines built-ins with all saved custom tools, including disabled ones. Built-ins are view-only except enabled toggle; custom tools can edit/delete/toggle. + opens a new custom editor. Import/export/legacy actions are in the toolbar menu. The editor retains visual parameters, raw schema, JavaScript, metadata, validation, saved-tool testing and dirty-state warnings.
+
+System Activity reads all saved call records, including System Activity and retained history for deleted workspaces. Invoked by, Tool name and Time are the main columns. Rows expand inline with Input and Output tabs plus identity, workspace, status, duration and call ID. Input/output are saved bounded summaries, not full original payloads. Agent and tool filters and exact call-ID search apply to all records in scope before time sorting and pagination. Ascending/descending time uses parsed started_at, with sequence as tie-breaker. Workspace Activity uses the same component scoped to that workspace.
+
+The query scans stored records but retains lightweight row metadata for ordering, not every full input/output payload. Details load only for expanded rows. New records mark Refresh rather than reordering the current page or stealing focus. Search, pagination and async details guard against stale responses. Very large local histories can still take time to scan; no unbounded payload cache or migration is introduced.
+
+Discussion remains independent per workspace, with replies and message pagination. Clicking a related call opens the workspace Activity view filtered to that ID. Existing token lifecycle, identity requirements, log storage and workspace/custom-tool keys are unchanged. No relay or automatic test workflow changes are included. Browser/UI acceptance is manual and no pass is claimed for this source change.
